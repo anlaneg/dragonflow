@@ -61,6 +61,7 @@ class _CommonBase(models.Base):
     def __init__(self, **kwargs):
         for key in kwargs:
             if key not in self._field_names:
+                #不认识的key
                 raise TypeError(
                     _('{field} is not a field of {model}').format(
                         field=key,
@@ -74,6 +75,7 @@ class _CommonBase(models.Base):
     @classmethod
     def from_json(cls, data):
         '''Instantiate current class from JSON encoded string'''
+        #通过json串构造类型
         return cls(**jsonutils.loads(data))
 
     def to_json(self):
@@ -96,15 +98,20 @@ class _CommonBase(models.Base):
             new_value = getattr(other, key)
 
             if old_value != new_value:
+                #值有变换，通过changed_fields指出哪些字段发生了变换
                 changed_fields.add(key)
+                
+                #使新值有效
                 if new_value is not None:
                     setattr(self, key, new_value)
                 else:
                     delattr(self, key)
 
+        #指出哪些字段发生了变化
         return changed_fields
 
     def _emit(self, event, *args, **kwargs):
+        #触发event对应的所有回调
         for cb in self._event_callbacks[event]:
             LOG.debug("%(func)s from %(module)s gets %(event)s event of "
                       "%(resource)r.",
@@ -127,17 +134,20 @@ class _CommonBase(models.Base):
 
     @classmethod
     def register(cls, event, cb):
+        #为此module完成event的事件注册
         '''Registers `cb` to be called each time `event` is emitted'''
         cls._event_callbacks[event].add(cb)
         return cb
 
     @classmethod
     def unregister(cls, event, cb):
+        #解除model的event注册
         '''Unregisters `cb` from being called each time `event` is emitted'''
         cls._event_callbacks[event].remove(cb)
 
     @classmethod
     def clear_registered_callbacks(cls):
+        #移除所有注册的event回调
         cls._event_callbacks.clear()
 
     @classmethod
@@ -174,11 +184,14 @@ class _CommonBase(models.Base):
         return instances
 
     def __setattr__(self, key, value):
+        #设置属性对应的值
         super(_CommonBase, self).__setattr__(key, value)
         if key in self._field_names:
+            #记录字段名称
             self._set_fields.add(key)
 
     def __delattr__(self, key):
+        #update字段名称
         if key in self._field_names:
             setattr(self, key, None)
             self._set_fields.discard(key)
@@ -195,6 +208,7 @@ class _CommonBase(models.Base):
         return name in self._set_fields
 
     def __copy__(self):
+        #产生self的一个副本
         fields = {name: getattr(self, name)
                   for name, _field in self.iterate_over_set_fields()}
         return self.__class__(**fields)
@@ -236,6 +250,7 @@ class _CommonBase(models.Base):
 
     @classmethod
     def is_first_class(cls):
+        #是否有table_name字段
         return hasattr(cls, 'table_name')
 
     @classmethod
@@ -290,16 +305,19 @@ class _CommonBase(models.Base):
 
 
 def _setattr_no_overwrite(obj, attr_name, attr):
+    #为obj新增属性
     if hasattr(obj, attr_name):
         return
     setattr(obj, attr_name, attr)
 
 
 def _add_event_funcs(cls_, event):
+    #新增event注册，解注册，以及event触发函数
     @classmethod
     def register_event(cls, cb):
         return cls.register(event, cb)
 
+    #新增event注册函数
     register_event_name = 'register_{0}'.format(event)
     register_event.__func__.__name__ = register_event_name
     _setattr_no_overwrite(cls_, register_event_name, register_event)
@@ -308,13 +326,16 @@ def _add_event_funcs(cls_, event):
     def unregister_event(cls, cb):
         cls.unregister(event, cb)
 
+    #新增event解注册函数
     unregister_event_name = 'unregister_{0}'.format(event)
     unregister_event.__func__.__name__ = unregister_event_name
     _setattr_no_overwrite(cls_, unregister_event_name, unregister_event)
 
     def emit_event(self, *args, **kwargs):
+        #触发model的对应的event,完成对应event的事件回调
         return self._emit(event, *args, **kwargs)
 
+    #新增event触发函数
     emit_event_name = 'emit_{0}'.format(event)
     emit_event.__name__ = emit_event_name
     _setattr_no_overwrite(cls_, emit_event_name, emit_event)
@@ -350,9 +371,11 @@ def construct_nb_db_model(cls_=None, indexes=None, events=frozenset()):
         def get_events(cls):
             return super(cls_, cls).get_events().union(events)
 
+        #添加get_indexes,get_events函数
         cls_.get_indexes = get_indexes
         cls_.get_events = get_events
 
+        #为cls的所有event添加注册，解注册，以及触发入口函数
         for event in cls_.get_events():
             # Do this in a function to escape lexical scope issues
             _add_event_funcs(cls_, event)
@@ -384,6 +407,7 @@ _lookup_by_table_name = {}
 
 @construct_nb_db_model(indexes={'id': ('id',)})
 class ModelBase(_CommonBase):
+    #定义id字段
     id = fields.StringField(required=True)
 
 
@@ -404,12 +428,14 @@ def register_model(cls):
         )
 
     if cls.__name__ in _lookup_by_class_name:
+        #已被注册，异常
         raise RuntimeError(
             _('Cannot register class named {0}, '
               'another class with same name exists').format(cls.__name__),
         )
 
     if cls.table_name in _lookup_by_table_name:
+        #table已被注册，异常
         raise RuntimeError(
             _('Cannot register {0} to table {1}, '
               'already occupied by {2}').format(
@@ -419,6 +445,7 @@ def register_model(cls):
             ),
         )
 
+    #注册
     _registered_models.add(cls)
     _lookup_by_class_name[cls.__name__] = cls
     _lookup_by_table_name[cls.table_name] = cls
@@ -437,6 +464,7 @@ def get_model(arg):
     '''
 
     if inspect.isclass(arg):
+        #如果为class直接返回
         return arg
 
     for lookup in (

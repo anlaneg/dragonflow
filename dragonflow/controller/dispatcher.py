@@ -17,14 +17,15 @@ from dragonflow.common import exceptions
 
 LOG = log.getLogger(__name__)
 
-
+#加载app，并代理所有app的调用入口
 class AppDispatcher(object):
-
     def __init__(self, app_list):
+        #记录app list
         self.apps_list = app_list
         self.apps = {}
 
     def load(self, *args, **kwargs):
+        #装载app指出的所有class
         mgr = stevedore.NamedExtensionManager(
             'dragonflow.controller.apps',
             self.apps_list,
@@ -34,11 +35,14 @@ class AppDispatcher(object):
         )
 
         for ext in mgr:
+            #指明扩展与class对象间的映射
             self.apps[ext.name] = ext.obj
 
     def dispatch(self, method, *args, **kwargs):
         errors = []
         for app in self.apps.values():
+            #遍历已加载的所有app,检查是否存在method,如果存在，则我触发method调用
+            #否则尝试下一个app
             handler = getattr(app, method, None)
             if handler is not None:
                 try:

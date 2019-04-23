@@ -158,6 +158,7 @@ class NbApi(object):
         time.sleep(0)
 
     def register_notification_callback(self, notification_cb):
+        #注册nb的通知回调
         self._notification_cb = notification_cb
 
     def register_listener_callback(self, cb, topic):

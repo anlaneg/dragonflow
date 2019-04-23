@@ -47,10 +47,12 @@ class Version(mf.MixinBase):
             self.version += 1
 
     def is_newer_than(self, other):
+        #检查两个obj谁更新一些，如果other为None,则self更新。否则比对版本号
         return other is None or self.version > other.version
 
 
 class Name(mf.MixinBase):
+    #名称字段
     name = fields.StringField()
 
 

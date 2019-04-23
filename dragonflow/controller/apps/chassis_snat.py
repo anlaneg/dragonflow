@@ -38,17 +38,21 @@ class ChassisSNATApp(df_base_app.DFlowApp, snat_mixin.SNATApp_mixin):
     def __init__(self, *args, **kwargs):
         super(ChassisSNATApp, self).__init__(*args, **kwargs)
         LOG.info("Loading SNAT application ... ")
+        #外部桥名称
         self.external_network_bridge = (
             cfg.CONF.df_snat_app.external_network_bridge)
+        #外部桥mac地址
         self.external_bridge_mac = self.vswitch_api.get_port_mac_in_use(
                 self.external_network_bridge) or const.EMPTY_MAC
         self.chassis = None
 
         # new application configuration
+        #主机ip
         self.external_host_ip = cfg.CONF.df.external_host_ip
 
         # create mac address based on given 'external_host_ip'
         if self.external_host_ip is not None:
+            #更新外部桥的mac地址
             split_ip = self.external_host_ip.split('.')
             ip2mac = '{:02x}:{:02x}:{:02x}:{:02x}'.format(*map(int, split_ip))
             self.external_host_mac = const.CHASSIS_MAC_PREFIX + ip2mac
@@ -70,15 +74,19 @@ class ChassisSNATApp(df_base_app.DFlowApp, snat_mixin.SNATApp_mixin):
 
     def _setup_patch_ports(self):
         integration_bridge = cfg.CONF.df.integration_bridge
+        #patch到integratin_bridge上
         ex_peer_patch_port = 'patch-snat-{0}'.format(
             self.external_network_bridge)
+        #patch到self.external_network_bridge桥上
         int_peer_patch_port = 'patch-snat-int'
 
+        #创建这两个patch口，并完成连接
         mapping = self.vswitch_api.create_patch_pair(
-            integration_bridge,
-            self.external_network_bridge,
+            integration_bridge,#local桥
+            self.external_network_bridge,#peer桥
             ex_peer_patch_port,
             int_peer_patch_port)
+        #获取可到external桥的接口的ofport
         self.external_ofport = self.vswitch_api.get_port_ofport(
             mapping[0])
 

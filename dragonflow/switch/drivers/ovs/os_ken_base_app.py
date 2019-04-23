@@ -41,6 +41,7 @@ class OsKenDFAdapter(ofp_handler.OFPHandler):
                  db_change_callback,
                  neutron_server_notifier=None):
         super(OsKenDFAdapter, self).__init__()
+        #通过配置的app_list获得dispatcher对象
         self.dispatcher = dispatcher.AppDispatcher(cfg.CONF.df.apps_list)
         self.vswitch_api = switch_backend.vswitch_api
         self.nb_api = nb_api
@@ -110,6 +111,7 @@ class OsKenDFAdapter(ofp_handler.OFPHandler):
         self.get_sw_async_msg_config()
 
         self.switch_backend.setup_datapath(self)
+        #分发给所有已加载app进行处理
         self.dispatcher.dispatch('switch_features_handler', ev)
 
         if not self.first_connect:

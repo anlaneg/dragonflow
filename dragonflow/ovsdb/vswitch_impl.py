@@ -55,6 +55,7 @@ class OvsApi(object):
             vlog.Vlog.init()
 
     def initialize(self, db_change_callback):
+        #指明db的连接方式
         db_connection = ('%s:%s:%s' % (self.protocol, self.ip, self.port))
 
         db_change_callback(None, None,
@@ -76,6 +77,7 @@ class OvsApi(object):
         return self.ovsdb.iface_to_br(iface_name).execute()
 
     def set_controller(self, bridge, targets):
+        #设置对应的controller
         self.ovsdb.set_controller(bridge, targets).execute()
 
     def set_controller_fail_mode(self, bridge, fail_mode):
@@ -112,9 +114,11 @@ class OvsApi(object):
         return tunnel_ports
 
     def add_virtual_tunnel_port(self, tunnel_type, local_ip=None):
+        #tunnel创建
         self.ovsdb.add_virtual_tunnel_port(tunnel_type, local_ip).execute()
 
     def delete_port(self, switch_port):
+        #删除interation_bridge上指定名称的port
         self.ovsdb.del_port(switch_port.name,
                             self.integration_bridge).execute()
 
@@ -174,6 +178,7 @@ class OvsApi(object):
     def _gen_link_mapping(self, bridge1, bridge2,
                           bridge1_link_name=None,
                           bridge2_link_name=None):
+        #生成patch口两端的port名称
         if bridge1_link_name is None:
             bridge1_link_name = "%s-patch" % bridge2
         if bridge2_link_name is None:
@@ -197,15 +202,18 @@ class OvsApi(object):
 
     def create_patch_pair(self, local_bridge, peer_bridge,
                           local_link_name=None, peer_link_name=None):
+        #创建两个port,使其为patch口，且相互连接
         links = self._gen_link_mapping(
                     local_bridge,
                     peer_bridge,
                     local_link_name,
                     peer_link_name)
+        #生成本端bridge上的patch口
         self._create_patch_port(
                     local_bridge,
                     links[0],
                     links[1])
+        #生成对端bridge上的patch口
         self._create_patch_port(
                     peer_bridge,
                     links[1],
@@ -214,18 +222,23 @@ class OvsApi(object):
 
     def _create_patch_port(self, bridge, port, peer_port):
         if cfg.CONF.df.enable_dpdk:
+            #开启dpdk的情况
             self.ovsdb.add_br(bridge, datapath_type='netdev').execute()
         else:
+            #创建相应的桥
             self.ovsdb.add_br(bridge, datapath_type='system').execute()
         if not self.patch_port_exist(port):
+            #创建相应的patch口
             self.ovsdb.add_patch_port(bridge, port, peer_port).execute()
 
     def patch_port_exist(self, port):
+        #检查port是否为存在的patch口
         return 'patch' == self._db_get_val('Interface', port, 'type',
                                            check_error=False,
                                            log_errors=False)
 
     def get_port_ofport(self, port):
+        #获取指定port的ofport
         return self._db_get_val('Interface', port, 'ofport',
                                 check_error=False, log_errors=False)
 

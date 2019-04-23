@@ -69,6 +69,7 @@ df_opts = [
     cfg.StrOpt('neutron_notifier',
                default='nb_api_neutron_notifier_driver',
                help=_('Notifier for the Dragonflow controller events')),
+    #指定switch后端驱动
     cfg.StrOpt('switch_backend',
                default='vswitch_backend_driver',
                help=_('Backend switch drivers to use')),

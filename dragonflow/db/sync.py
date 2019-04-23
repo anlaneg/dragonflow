@@ -22,6 +22,7 @@ class Sync(object):
 
     def __init__(self, nb_api, update_cb, delete_cb, selective=True):
         self._nb_api = nb_api
+        #更新回调及删除回调
         self._update_cb = update_cb
         self._delete_cb = delete_cb
         self._db_store = db_store.get_instance()
@@ -70,20 +71,26 @@ class Sync(object):
                 self._delete_cb(cached_obj)
 
     def sync(self):
+        #同步对象，完成新增更新及删除
         '''Syncs all the models for all relevant topics.
         '''
         for model in self._models:
+            #遍历所有model，完成model对应的obj的更新
             self._update_model(model)
 
         # Reverse order when deleting objects
         for model in reversed(self._models):
+            #遍历所有model，完成model对象的cleanup
             self._cleanup_model(model)
 
     def _update_model(self, model):
         if not self._selective or not issubclass(model, mixins.Topic):
+            #获得model的所有obj
             desired = self._nb_api.get_all(model)
+            #更新这一组对象
             self._update_objects(desired)
         else:
+            #Topic的更新
             for topic in self._topics:
                 desired = self._nb_api.get_all(model, topic)
                 self._update_objects(desired)
@@ -94,8 +101,11 @@ class Sync(object):
 
     def _cleanup_model(self, model):
         if not self._selective or not issubclass(model, mixins.Topic):
+            #取出所有的
             desired = self._nb_api.get_all(model)
+            #取出存在的
             present = self._db_store.get_all(model)
+            #使present-desired，然后遍历这个集合，针对每个obj,调用delete_cb 
             self._cleanup_objects(desired, present)
         else:
             present_all = self._db_store.get_all(model)

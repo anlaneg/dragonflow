@@ -46,6 +46,7 @@ LOG = log.getLogger(__name__)
 class DfLocalController(object):
 
     def __init__(self, chassis_name, nb_api):
+        #用于缓存obj
         self.db_store = db_store.get_instance()
         self._queue = queue.PriorityQueue()
         # pending_id -> (model, pender_id)
@@ -65,11 +66,13 @@ class DfLocalController(object):
             self.neutron_notifier = df_utils.load_driver(
                      cfg.CONF.df.neutron_notifier,
                      df_utils.DF_NEUTRON_NOTIFIER_DRIVER_NAMESPACE)
+        #加载switch_backend
         self.switch_backend = df_utils.load_driver(
             cfg.CONF.df.switch_backend,
             df_utils.DF_SWITCH_BACKEND_DRIVER_NAMESPACE,
             nb_api, cfg.CONF.df.management_ip)
 
+        #switch_backend初始化
         self.switch_backend.initialize(self.db_change_callback,
                                        self.neutron_notifier)
         self.topology = None
@@ -77,6 +80,7 @@ class DfLocalController(object):
             cfg.CONF.df.enable_selective_topology_distribution
         self._sync = sync.Sync(
             nb_api=self.nb_api,
+            #指明同步对应的update,delete回调
             update_cb=self.update,
             delete_cb=self.delete,
             selective=self.enable_selective_topo_dist,
@@ -90,17 +94,21 @@ class DfLocalController(object):
     def db_change_callback(self, table, key, action, value, topic=None):
         update = db_common.DbUpdate(table, key, action, value, topic=topic)
         LOG.debug("Pushing Update to Queue: %s", update)
+        #将更新信息存入队列
         self._queue.put(update)
         time.sleep(0)
 
     def process_changes(self):
         while True:
+            #自队列中拿出update
             next_update = self._queue.get(block=True)
             LOG.debug("Event update: %s", next_update)
+            #将更新交给nb_api
             self.nb_api._notification_cb(next_update)
             self._queue.task_done()
 
     def run(self):
+        #注册nb_api的通知回调
         self.nb_api.register_notification_callback(self._handle_update)
         if self.neutron_notifier:
             self.neutron_notifier.initialize(nb_api=self.nb_api)
@@ -122,6 +130,7 @@ class DfLocalController(object):
                                 ctrl_const.CONTROLLER_SYNC, None)
 
     def _register_models(self):
+        #注册要同步的model
         ignore_models = self.switch_backend.sync_ignore_models()
         for model in model_framework.iter_models_by_dependency_order():
             # FIXME (dimak) generalize sync to support non-northbound models
@@ -222,25 +231,32 @@ class DfLocalController(object):
         except AttributeError:
             return obj != cached_obj
 
+    #通过缓存的obj来区分是更新，还是删除
     def update_model_object(self, obj):
+        #取之前缓存的obj
         original_obj = self.db_store.get_one(obj)
 
+        #如果obj版本号并不如original_obj大，则不处理
         if not self._is_newer(obj, original_obj):
             return
 
+        #obj更新一些，则缓存obj
         self.db_store.update(obj)
 
         if original_obj is None:
+            #原来没有缓存obj且obj为event,则触发创建事件
             if _has_basic_events(obj):
                 obj.emit_created()
         else:
             if _has_basic_events(obj):
+                #执行obj更新
                 obj.emit_updated(original_obj)
 
     def delete_model_object(self, obj):
         # Retrieve full object (in case we only got Model(id='id'))
         org_obj = self.db_store.get_one(obj)
         if org_obj:
+            #原来存在，则删除
             if _has_basic_events(org_obj):
                 org_obj.emit_deleted()
             self.db_store.delete(org_obj)
@@ -264,6 +280,7 @@ class DfLocalController(object):
         return getattr(self, method_name, self.delete_model_object)
 
     def update(self, obj):
+        #调用update_xx
         handler = getattr(
             self,
             'update_{0}'.format(obj.table_name),
@@ -272,6 +289,7 @@ class DfLocalController(object):
         return handler(obj)
 
     def delete(self, obj):
+        #通过调用delete_xx来完成删除
         handler = self._get_delete_handler(obj.table_name)
         return handler(obj)
 
@@ -280,9 +298,11 @@ class DfLocalController(object):
         return self.delete(model(id=obj_id))
 
     def _handle_update(self, update):
+        #处理收到的update
         try:
             self._handle_db_change(update)
         except Exception as e:
+            #如果发生异常，视情况进行同步操作
             if "port_num is 0" not in str(e):
                 LOG.exception(e)
             if not self.sync_rate_limiter():
@@ -291,19 +311,25 @@ class DfLocalController(object):
     def _handle_db_change(self, update):
         action = update.action
         if action == ctrl_const.CONTROLLER_REINITIALIZE:
+            #重新初始化
             self.db_store.clear()
             self.switch_backend.initialize(self.db_change_callback,
                                            self.neutron_notifier)
             self.sync()
         elif action == ctrl_const.CONTROLLER_SYNC:
+            #同步
             self.sync()
         elif action == ctrl_const.CONTROLLER_DBRESTART:
+            #db重启事件
             self.nb_api.db_recover_callback()
         elif action == ctrl_const.CONTROLLER_SWITCH_SYNC_FINISHED:
+            #switch同步结束
             self.switch_sync_finished()
         elif action == ctrl_const.CONTROLLER_SWITCH_SYNC_STARTED:
+            #switch同步开始
             self.switch_sync_started()
         elif action == ctrl_const.CONTROLLER_LOG:
+            #显示contrller log
             LOG.info('Log event: %s', str(update))
         elif update.table is not None:
             try:
@@ -313,8 +339,10 @@ class DfLocalController(object):
                 LOG.warning('Unknown table %s', update.table)
             else:
                 if action == 'delete':
+                    #执行obj删除
                     self.delete_by_id(model_class, update.key)
                 else:
+                    #执行obj更新
                     obj = model_class.from_json(update.value)
                     self._send_updates_for_object(obj)
         else:

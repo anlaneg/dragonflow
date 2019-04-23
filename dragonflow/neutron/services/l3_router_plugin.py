@@ -108,6 +108,7 @@ class DFL3AgentlessRouterPlugin(service_base.ServicePluginBase,
         return self.conn.consume_in_threads()
 
     def get_plugin_type(self):
+        #指出插件类型
         return plugin_const.L3
 
     def get_plugin_description(self):
@@ -117,6 +118,7 @@ class DFL3AgentlessRouterPlugin(service_base.ServicePluginBase,
 
     @lock_db.wrap_db_lock(lock_db.RESOURCE_DF_PLUGIN)
     def create_router(self, context, router):
+        #处理路由器创建
         router = super(DFL3AgentlessRouterPlugin, self).create_router(
             context, router)
         lrouter = neutron_l3.logical_router_from_neutron_router(router)

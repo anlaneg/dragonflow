@@ -180,6 +180,7 @@ class SNATApp_mixin(object):
 
     def _install_snat_ingress_conntrack(self):
         parser = self.parser
+        #将所有的ip报文做nat
         match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP)
 
         ofproto = self.ofproto
@@ -200,8 +201,9 @@ class SNATApp_mixin(object):
             ofproto.OFPIT_APPLY_ACTIONS, actions)
         inst = [action_inst]
 
+        #添加流到表table_id
         self.mod_flow(
-            inst=inst,
+            inst=inst,#action
             table_id=const.INGRESS_NAT_TABLE,
             priority=const.PRIORITY_LOW,
             match=match)

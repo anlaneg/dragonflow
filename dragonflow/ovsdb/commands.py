@@ -23,7 +23,9 @@ class AddPatchPort(commands.BaseCommand):
         self.peer_port = peer_port
 
     def run_idl(self, txn):
+        #取此桥
         br = idlutils.row_by_value(self.api.idl, 'Bridge', 'name', self.bridge)
+        #在此桥上添加一个port
         port = txn.insert(self.api.idl.tables['Port'])
         port.name = self.port
         br.verify('ports')
@@ -31,15 +33,18 @@ class AddPatchPort(commands.BaseCommand):
         ports.append(port)
         br.ports = ports
 
+        #在此桥上添加interface
         iface = txn.insert(self.api.idl.tables['Interface'])
         iface.name = self.port
         port.verify('interfaces')
         ifaces = getattr(port, 'interfaces', [])
         options_dict = getattr(iface, 'options', {})
         external_ids = getattr(iface, 'external_ids', {})
+        #指明此interface的peer_port
         options_dict['peer'] = self.peer_port
         iface.options = options_dict
         iface.external_ids = external_ids
+        #指明接口类型为patch
         iface.type = 'patch'
         ifaces.append(iface)
         port.interfaces = ifaces
@@ -52,6 +57,7 @@ class GetBridgePorts(commands.BaseCommand):
 
     def run_idl(self, txn):
         br = idlutils.row_by_value(self.api.idl, 'Bridge', 'name', self.bridge)
+        #仅返回与桥名称不同的ports
         self.result = [p for p in br.ports if p.name != self.bridge]
 
 
@@ -69,11 +75,13 @@ class AddVirtualTunnelPort(commands.BaseCommand):
         port = idlutils.row_by_value(self.api.idl, 'Port', 'name',
                                      self.port, None)
         if port:
+            #port已存在，则退出
             return
 
         bridge = idlutils.row_by_value(self.api.idl, 'Bridge',
                                        'name', self.integration_bridge)
 
+        #在bridge上添加port
         port = txn.insert(self.api._tables['Port'])
         port.name = self.port
         bridge.verify('ports')
@@ -81,13 +89,17 @@ class AddVirtualTunnelPort(commands.BaseCommand):
         ports.append(port)
         bridge.ports = ports
 
+        #在添加此port对应的interface
         iface = txn.insert(self.api._tables['Interface'])
         txn.expected_ifaces.add(iface.uuid)
         iface.name = self.port
+        #指定接口对应的隧道类型
         iface.type = self.tunnel_type
         options_dict = getattr(iface, 'options', {})
+        #指定对端ip及key均来源于flow中
         options_dict['remote_ip'] = 'flow'
         options_dict['key'] = 'flow'
+        #指明本端的ip地址
         options_dict['local_ip'] = self.local_ip
         iface.options = options_dict
         port.verify('interfaces')

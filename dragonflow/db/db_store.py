@@ -105,7 +105,7 @@ def _take_one(iterable):
     except StopIteration:
         return None
 
-
+#提供一个obj缓存方式，要求obj有id属性，按id属性进行保存（支持仅容许保存一个实例的情况）
 class _ModelCache(object):
     '''A cache for all instances of a model
 
@@ -127,6 +127,7 @@ class _ModelCache(object):
             self._indexes[index] = _IndexCache(index)
 
     def _get_by_id(self, obj_id):
+        #通过obj_id获得obj
         return self._objs[obj_id]
 
     def delete(self, obj):
@@ -140,24 +141,32 @@ class _ModelCache(object):
         for index in self._indexes.values():
             index.update(obj)
 
+        #通过obj.id获得旧的obj,并设置新的obj
         old_obj = self._objs.get(obj.id)
         if old_obj:
+            #指明此obj已过期
             old_obj._is_object_stale = True
         self._objs[obj.id] = obj
 
     def get_one(self, obj, index):
         if index not in (None, self._id_index):
+            #有index且index有效时，先获取keys
             keys = self.get_keys(obj, index)
+            #取第一个obj对应的obj_id
             obj_id = _take_one(keys)
 
             if obj_id is not None and _take_one(keys) is not None:
+                #此种情况下不容许出现多个obj
                 raise ValueError(_('More than one result available'))
         else:
+            #直接自obj中取id号
             obj_id = obj.id
 
         try:
+            #通过id号比对对象
             return self._get_by_id(obj_id)
         except KeyError:
+            #如果不存在，则返回None
             return None
 
     def get_keys(self, obj, index):
@@ -187,9 +196,11 @@ class DbStore(object):
         self._embedded_refs = collections.defaultdict(set)
 
     def _get_cache(self, model):
+        #给定一个类别，取缓存的此类别的_ModelCache对象
         try:
             return self._cache[model]
         except KeyError:
+            #不存在，定义_ModelCache对象
             cache = _ModelCache(model)
             self._cache[model] = cache
             return cache
@@ -319,6 +330,7 @@ _instance_lock = threading.Lock()
 
 
 def get_instance():
+    #获得一个DbStore的实例
     global _instance
 
     with _instance_lock:

@@ -21,11 +21,15 @@ from dragonflow.db.models import mixins
 @mf.register_model
 @mf.construct_nb_db_model
 class SwitchPort(mf.ModelBase, mixins.BasicEvents, mixins.Name):
+    #定义表结构
     table_name = 'switch_port'
 
+    #port编号
     port_num = fields.IntField()
+    #admin状态
     admin_state = df_fields.EnumField(('up', 'down'))
     lport = df_fields.ReferenceField(l2.LogicalPort)
+    #接口类型
     type = df_fields.EnumField(
         (
             constants.SWITCH_BRIDGE_INTERFACE,
@@ -35,7 +39,11 @@ class SwitchPort(mf.ModelBase, mixins.BasicEvents, mixins.Name):
             constants.SWITCH_UNKNOWN_INTERFACE,
         ),
     )
+    #对端信息
     peer = fields.StringField()
+    #接口mac地址
     mac_in_use = df_fields.MacAddressField()
+    #
     attached_mac = df_fields.MacAddressField()
+    #隧道类型
     tunnel_type = fields.StringField()

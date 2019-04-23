@@ -198,12 +198,15 @@ class DFOvsdbApi(impl_idl.OvsdbIdl):
         super(DFOvsdbApi, self).__init__(ovsdb_connection)
 
     def get_bridge_ports(self, bridge):
+        #返回桥上除上连口以外的ports
         return commands.GetBridgePorts(self, bridge)
 
     def add_patch_port(self, bridge, port, peer_port):
+        #在桥上添加一个patch port,并指定其的对端port为peer_port
         return commands.AddPatchPort(self, bridge, port, peer_port)
 
     def add_virtual_tunnel_port(self, tunnel_type, local_ip=None):
+        #在桥上添加一个tunnel port,并指定其对端的ip,key均来源于flow,指定本端的ip
         return commands.AddVirtualTunnelPort(self, tunnel_type, local_ip)
 
     def create_qos(self, port_id, qos):

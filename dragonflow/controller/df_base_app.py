@@ -61,6 +61,7 @@ class DFlowApp(object):
                 # _register_events attribute (and any other attribute too).
                 # list(mock.Mock()) yields an empty list so this works out
                 # with little effort.
+                # 检查attr是否具有 _register_events属性，如果存在返回为其设置的值
                 args = list(attr._register_events)
             except (AttributeError, TypeError):
                 # * AttributeError is OK because we stumbled upon an attribute
@@ -70,6 +71,7 @@ class DFlowApp(object):
                 #   a _register_events method on an object we hold).
                 continue
 
+            #为对应的model注册event及attr
             for model, event in args:
                 model.register(event, attr)
 
@@ -290,12 +292,16 @@ def register_event(model, event):
     :type event: String
     '''
     if event not in model.get_events():
+        #model必须支持相应的event
         raise RuntimeError(
             _('{0} is not an event of {1}').format(event, model))
 
     def decorator(func):
+        #为func添加_register_events,后面遍历attr时会检查有_register_events属性的attr
+        #会被识别为register函数，完成注册
         if not hasattr(func, '_register_events'):
             func._register_events = []
+        #添加对model,event的注册说明
         func._register_events.append((model, event))
         return func
     return decorator
