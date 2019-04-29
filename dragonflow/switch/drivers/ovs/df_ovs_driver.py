@@ -30,8 +30,11 @@ from dragonflow.switch.drivers.ovs import os_ken_base_app
 class DfOvsDriver(df_switch_driver.DfSwitchDriver):
     def __init__(self, nb_api, ip):
         super(DfOvsDriver, self).__init__(nb_api)
+        #os_ken 配置初始化
         init_os_ken_config()
+        #构造vswitch的操作api对象
         self.vswitch_api = vswitch_impl.OvsApi(ip)
+        #app管理
         self.app_mgr = app_manager.AppManager.get_instance()
         self.open_flow_app = None
         self.open_flow_service = None
@@ -42,13 +45,17 @@ class DfOvsDriver(df_switch_driver.DfSwitchDriver):
     def initialize(self, db_change_callback, neutron_notifier):
         super(DfOvsDriver, self).initialize(db_change_callback,
                                             neutron_notifier)
+        #初始化open_flow_app
         self._initialize_app()
         # The OfctlService is needed to support the 'get_flows' method
         self._initialize_service()
 
+    #初始化open_flow_app
     def _initialize_app(self):
         if self.open_flow_app:
+            #如果open_flow_app已初始化，移除open_flow_app
             self.app_mgr.uninstantiate(self.open_flow_app.name)
+        #初始化open_flow_app
         self.open_flow_app = self.app_mgr.instantiate(
             os_ken_base_app.OsKenDFAdapter,
             nb_api=self.nb_api,
@@ -57,6 +64,7 @@ class DfOvsDriver(df_switch_driver.DfSwitchDriver):
             db_change_callback=self.db_change_callback
         )
 
+    #初始化open_flow_service
     def _initialize_service(self):
         if self.open_flow_service:
             self.app_mgr.uninstantiate(self.open_flow_service.name)
@@ -79,15 +87,19 @@ class DfOvsDriver(df_switch_driver.DfSwitchDriver):
         # if no, set controller
         targets = ('tcp:' + cfg.CONF.df_os_ken.of_listen_address + ':' +
                    str(cfg.CONF.df_os_ken.of_listen_port))
+        #是否已设置了controller
         is_controller_set = self.vswitch_api.check_controller(targets)
         integration_bridge = cfg.CONF.df.integration_bridge
         if not is_controller_set:
+            #未设置集成桥的controller,设置controller
             self.vswitch_api.set_controller(integration_bridge, [targets])
         is_fail_mode_set = self.vswitch_api.check_controller_fail_mode(
             'secure')
         if not is_fail_mode_set:
+            #设置bridge的fail_mode
             self.vswitch_api.set_controller_fail_mode(integration_bridge,
                                                       'secure')
+        #启动event 处理线程
         self.open_flow_service.start()
         self.open_flow_app.start()
 
@@ -95,9 +107,11 @@ class DfOvsDriver(df_switch_driver.DfSwitchDriver):
         pass
 
     def switch_sync_started(self):
+        # 启动switch 同步
         self.open_flow_app.notify_switch_sync_started()
 
     def switch_sync_finished(self):
+        # 处理switch 同步完成事件
         self.open_flow_app.notify_switch_sync_finished()
 
     def sync_ignore_models(self):

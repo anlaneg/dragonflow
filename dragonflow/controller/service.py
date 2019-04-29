@@ -30,14 +30,17 @@ def run_status_reporter(callback):
             LOG.exception("Failed to report status")
         return True
 
+    #周期性的调用callback进行状态上报
     timer = loopingcall.FixedIntervalLoopingCall(report_status)
     timer.start(interval=cfg.CONF.df.report_interval)
 
 
 def register_service(service_name, nb_api):
     chassis_id = cfg.CONF.host
+    #创建此service在nb中的记录，跳过事件发送
     nb_api.create(service.Service(chassis=chassis_id, binary=service_name),
                   skip_send_event=True)
+    #构造周期性report回调，并启动reporter(实际上就是周期性的触发nb的update event)
     callback = functools.partial(service.Service.update_last_seen,
                                  nb_api, chassis_id, service_name)
     run_status_reporter(callback)

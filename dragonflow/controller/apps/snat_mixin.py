@@ -82,6 +82,8 @@ class SNATApp_mixin(object):
 
     def _install_ingress_goto_rules(self):
         parser = self.parser
+        
+        #匹配external_ofport (br-int桥上连接br-ex的port)
         match = parser.OFPMatch(in_port=self.external_ofport)
         actions = [parser.NXActionRegLoad(
                 dst='in_port',

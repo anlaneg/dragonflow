@@ -32,7 +32,7 @@ LOG = logging.getLogger(__name__)
 
 MONITOR_TABLES = [core.Chassis.table_name, core.Publisher.table_name]
 
-
+#消息打包
 def pack_message(message):
     data = None
     try:
@@ -61,7 +61,7 @@ def generate_publisher_uuid():
     return str(uuid.uuid5(uuid.NAMESPACE_DNS,
                "{0}.{1}".format(process_name, fqdn)))
 
-
+#定义publisher及subscriber对象的获取
 @six.add_metaclass(abc.ABCMeta)
 class PubSubApi(object):
     """
@@ -137,6 +137,7 @@ class PublisherAgentBase(PublisherApi):
         :returns:       None
         """
         if topic is None:
+            #未指出topic时，使用update自身的topic
             topic = update.topic or db_common.SEND_ALL_TOPIC
 
         topic = topic.encode('utf8')
@@ -144,6 +145,7 @@ class PublisherAgentBase(PublisherApi):
         LOG.debug("Sending %s to %s", update, topic)
 
         data = pack_message(update.to_dict())
+        #调用底层接口实现消息发送给指定topic
         self._send_event(data, topic)
 
 
@@ -233,6 +235,7 @@ class SubscriberAgentBase(SubscriberApi):
         self.daemon.daemon = True
 
     def register_listen_address(self, uri):
+        #注册监听的地址
         if uri not in self.uri_list:
             self.uri_list.append(uri)
             return True

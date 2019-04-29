@@ -28,7 +28,7 @@ LOG = logging.getLogger(__name__)
 
 SUPPORTED_TRANSPORTS = set(['tcp', 'epgm'])
 
-
+#定义了初始化，连接，发送，关闭等动作
 class ZMQPublisherAgentBase(pub_sub_api.PublisherAgentBase):
     def __init__(self):
         self.socket = None
@@ -39,6 +39,7 @@ class ZMQPublisherAgentBase(pub_sub_api.PublisherAgentBase):
         super(ZMQPublisherAgentBase, self).initialize()
         self._connect()
 
+    #定义接口，完成到server的连接
     def _connect(self):
         pass
 
@@ -46,6 +47,7 @@ class ZMQPublisherAgentBase(pub_sub_api.PublisherAgentBase):
         if not self.socket:
             self._connect()
 
+        #通过socket完成发送
         self.socket.send_multipart([topic, data])
 
     def close(self):
@@ -77,7 +79,9 @@ class ZMQPublisherMultiprocAgent(ZMQPublisherAgentBase):
         self.context = zmq.Context()
 
     def _connect(self):
+        #创建push类型socket
         self.socket = self.context.socket(zmq.PUSH)
+        #连接到配置的地址
         ipc_socket = cfg.CONF.df_zmq.ipc_socket
         LOG.debug("About to connect to IPC socket: %s", ipc_socket)
         self.socket.connect('ipc://%s' % ipc_socket)
@@ -108,12 +112,14 @@ class ZMQSubscriberAgentBase(pub_sub_api.SubscriberAgentBase):
         topic = topic.encode('ascii', 'ignore')
         is_new = super(ZMQSubscriberAgentBase, self).register_topic(topic)
         if is_new and self.sub_socket:
+            #指明topic订阅
             self.sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def unregister_topic(self, topic):
         topic = topic.encode('ascii', 'ignore')
         super(ZMQSubscriberAgentBase, self).unregister_topic(topic)
         if self.sub_socket:
+            #指明topic取消订阅
             self.sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
 
     def run(self):
@@ -147,21 +153,25 @@ class ZMQSubscriberMultiprocAgent(ZMQSubscriberAgentBase):
 
 class ZMQSubscriberAgent(ZMQSubscriberAgentBase):
     def connect(self):
+        #创建sub类型的socket
         self.sub_socket = self.context.socket(zmq.SUB)
+        #连接到对应的server
         for uri in self.uri_list:
             # TODO(gampel) handle exp zmq.EINVAL,zmq.EPROTONOSUPPORT
             LOG.debug("About to connect to network publisher at %s", uri)
             self.sub_socket.connect(uri)
+        #知会对方，我们订阅的topic
         for topic in self.topic_list:
             self.sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
-
+#仅实现接口及校验传输协议配置
 @six.add_metaclass(abc.ABCMeta)
 class ZMQPubSubBase(pub_sub_api.PubSubApi):
     def __init__(self):
         super(ZMQPubSubBase, self).__init__()
         transport = cfg.CONF.df.publisher_transport
         if transport not in SUPPORTED_TRANSPORTS:
+            #如果用户配置的传输协议本驱动不支持，则报错
             message = ("zmq_pub_sub: Unsupported publisher_transport value "
                        "%(transport)s, expected %(expected)s")
             LOG.error(message, {
@@ -169,6 +179,7 @@ class ZMQPubSubBase(pub_sub_api.PubSubApi):
                 'expected': SUPPORTED_TRANSPORTS
             })
             raise exceptions.UnsupportedTransportException(transport=transport)
+        #初始化None
         self.subscriber = None
         self.publisher = None
 
@@ -191,5 +202,6 @@ class ZMQPubSubConnect(ZMQPubSubBase):
     """Has TCP/PGM subscriber and IPC publisher"""
     def __init__(self):
         super(ZMQPubSubConnect, self).__init__()
+        #实例化发布者与订阅者对象
         self.subscriber = ZMQSubscriberAgent()
         self.publisher = ZMQPublisherMultiprocAgent()

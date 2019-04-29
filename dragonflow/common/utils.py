@@ -29,7 +29,9 @@ from dragonflow._i18n import _
 from dragonflow import conf as cfg
 from dragonflow import version
 
+#发布订阅驱动
 DF_PUBSUB_DRIVER_NAMESPACE = 'dragonflow.pubsub_driver'
+#北向数据库驱动
 DF_NB_DB_DRIVER_NAMESPACE = 'dragonflow.nb_db_driver'
 DF_NEUTRON_NOTIFIER_DRIVER_NAMESPACE = 'dragonflow.neutron_notifier_driver'
 DF_SWITCH_BACKEND_DRIVER_NAMESPACE = 'dragonflow.switch_backend_driver'

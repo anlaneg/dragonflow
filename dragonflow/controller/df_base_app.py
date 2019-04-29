@@ -35,7 +35,7 @@ LOG = log.getLogger(__name__)
 class DFlowApp(object):
     def __init__(self, api, switch_backend=None, nb_api=None,
                  neutron_server_notifier=None):
-        self.api = api
+        self.api = api #将OsKenDFAdapter做为api
         self.db_store = db_store.get_instance()
         self.switch_backend = switch_backend
         self.nb_api = nb_api
@@ -160,6 +160,7 @@ class DFlowApp(object):
         datapath.send_msg(message)
 
     def get_flows(self, datapath=None, table_id=None, timeout=None):
+        # 取指定datapath的指定table_id中的所有flows
         if datapath is None:
             datapath = self.datapath
         if table_id is None:
@@ -181,6 +182,7 @@ class DFlowApp(object):
         if replies is None:
             LOG.error("No reply for get flows")
             return []
+        # 取响应返回的所有flows
         flows = [body for reply in replies for body in reply.body]
         LOG.debug("Got the following flows: %s", flows)
         return flows

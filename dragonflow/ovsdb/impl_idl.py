@@ -191,6 +191,7 @@ class DFOvsdbApi(impl_idl.OvsdbIdl):
     them. And Dragonflow can extend its own commands in this class.
     """
     def __init__(self, db_connection, timeout, db_change_callback):
+        #连接到ovsdb
         idl = df_idl_from_server(db_connection, 'Open_vSwitch',
                                  db_change_callback)
         type(self).ovsdb_connection = None

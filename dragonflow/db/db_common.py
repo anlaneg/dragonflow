@@ -18,7 +18,7 @@ SEND_ALL_TOPIC = 'D'
 DB_SYNC_MINIMUM_INTERVAL = 180
 UNIQUE_KEY_TABLE = 'unique_key'
 
-
+#描述database update event
 class DbUpdate(object):
     """Encapsulates a DB update
 
@@ -30,10 +30,15 @@ class DbUpdate(object):
         if timestamp is None:
             timestamp = timeutils.utcnow()
         self.timestamp = timestamp
+        #表中obj的key
         self.key = key
+        #update动作，例如create,delete
         self.action = action
+        #哪个表被更新
         self.table = table
+        #obj的取值
         self.value = value
+        #event对应的topic
         self.topic = topic
 
     def to_dict(self):

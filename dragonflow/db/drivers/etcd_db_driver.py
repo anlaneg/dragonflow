@@ -87,7 +87,7 @@ def _error_catcher(self):
             self.release_conn()
 urllib3.HTTPResponse._error_catcher = _error_catcher
 
-
+#通过etcd来支持table创建及表项的增删改
 class EtcdDbDriver(db_api.DbApi):
 
     def __init__(self):
@@ -97,10 +97,12 @@ class EtcdDbDriver(db_api.DbApi):
         self.notify_callback = None
 
     def initialize(self, db_ip, db_port, **args):
+        #初始化db client(采用etcd进行存储）
         self.client = etcd.client(host=db_ip, port=db_port)
 
     def create_table(self, table):
         # Not needed in etcd
+        #由于不支持创建表，故此函数留空，通过构造含table的key来解决table的隔离
         pass
 
     def delete_table(self, table):
@@ -109,12 +111,15 @@ class EtcdDbDriver(db_api.DbApi):
     @staticmethod
     def _make_key(table, obj_id=None):
         if obj_id:
+            #含id时的key
             key = '/{}/{}'.format(table, obj_id)
         else:
+            #仅含table时的key
             key = '/{}/'.format(table)
         return key
 
     def get_key(self, table, key, topic=None):
+        #获取key值
         key = self._get_key(self._make_key(table, key), key)
         if not six.PY2:
             key = key.decode("utf-8")
@@ -123,22 +128,27 @@ class EtcdDbDriver(db_api.DbApi):
     def _get_key(self, table_key, key):
         value = self.client.get(table_key)
         if len(value) > 0:
+            #如果有多个，则返回一个
             return value.pop()
         raise df_exceptions.DBKeyNotFound(key=key)
 
     def set_key(self, table, key, value, topic=None):
+        #存入key，value
         self.client.put(self._make_key(table, key), value)
 
     def create_key(self, table, key, value, topic=None):
+        #存入key,value
         self.client.put(self._make_key(table, key), value)
 
     def delete_key(self, table, key, topic=None):
+        #移除key
         deleted = self.client.delete(self._make_key(table, key))
         if not deleted:
             raise df_exceptions.DBKeyNotFound(key=key)
 
     def get_all_entries(self, table, topic=None):
         res = []
+        #获取所有包含table前缀的value
         directory = self.client.get_prefix(self._make_key(table))
         for entry in directory:
             value = entry[0]
@@ -147,6 +157,7 @@ class EtcdDbDriver(db_api.DbApi):
         return res
 
     def get_all_keys(self, table, topic=None):
+        #返回所有包含table前缀的所有key
         res = []
         directory = self.client.get_prefix(self._make_key(table))
         table_name_size = len(table) + 2
@@ -162,22 +173,27 @@ class EtcdDbDriver(db_api.DbApi):
         table_key = self._make_key(db_common.UNIQUE_KEY_TABLE, table)
         prev_value = 0
         try:
+            #尝试读取之前设置的值
             prev_value = int(self._get_key(table_key, table))
         except df_exceptions.DBKeyNotFound:
             if prev_value == 0:
                 # Create new key
+                # 之前未设置，首次，创建对应的key
                 if self.client.create(table_key, "1"):
                     return 1
             raise RuntimeError()  # Error occurred. Restart the allocation
 
+        # 产生新的序号，并更新
         new_unique = prev_value + 1
         if self.client.replace(table_key, str(prev_value), str(new_unique)):
             return new_unique
+        #原子更新失败？
         raise RuntimeError()  # Error occurred. Restart the allocation
 
     def allocate_unique_key(self, table):
         while True:
             try:
+                #生成一个唯一的key
                 return self._allocate_unique_key(table)
             except RuntimeError:
                 pass

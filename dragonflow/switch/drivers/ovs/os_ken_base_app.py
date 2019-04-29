@@ -34,6 +34,7 @@ LOG = log.getLogger(__name__)
 
 
 class OsKenDFAdapter(ofp_handler.OFPHandler):
+    #要求1.3版本
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     OF_AUTO_PORT_DESC_STATS_REQ_VER = 0x04
 
@@ -58,7 +59,8 @@ class OsKenDFAdapter(ofp_handler.OFPHandler):
 
     def start(self):
         super(OsKenDFAdapter, self).start()
-        self.load(self,
+        #装载所有app
+        self.load(self,#传入OsKenDFAdapter
                   switch_backend=self.switch_backend,
                   nb_api=self.nb_api,
                   neutron_server_notifier=self.neutron_server_notifier)
@@ -71,6 +73,7 @@ class OsKenDFAdapter(ofp_handler.OFPHandler):
         return self.datapath is not None
 
     def wait_until_ready(self):
+        #等待，直到datapath不为None
         while not self.is_ready():
             time.sleep(3)
 
@@ -92,9 +95,11 @@ class OsKenDFAdapter(ofp_handler.OFPHandler):
         self.table_handlers.pop(table_id, None)
 
     def notify_switch_sync_finished(self):
+        # 触发 所有app执行 switch_sync_finished
         self.dispatcher.dispatch(constants.CONTROLLER_SWITCH_SYNC_FINISHED)
 
     def notify_switch_sync_started(self):
+        # 触发 所有app执行 switch_sync_started
         self.dispatcher.dispatch(constants.CONTROLLER_SWITCH_SYNC_STARTED)
 
     @handler.set_ev_handler(ofp_event.EventOFPSwitchFeatures,

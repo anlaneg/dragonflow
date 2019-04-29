@@ -24,18 +24,21 @@ df_opts = [
                 default=4001,
                 deprecated_for_removal=True,
                 help=_('The remote db server port')),
+    #北向database主机及端口列表
     cfg.ListOpt('remote_db_hosts',
                 default=['$remote_db_ip:$remote_db_port'],
                 help=_('Remote DB cluster host:port pairs.')),
     cfg.StrOpt('nb_db_class',
                default='etcd_nb_db_driver',
                help=_('The driver to use for the NB database')),
+    #配置本主机的ip地址
     cfg.IPOpt('local_ip',
               default='127.0.0.1',
               help=_('Local host VTEP IP')),
     cfg.IPOpt('management_ip',
               default='127.0.0.1',
               help=_('Local host management IP')),
+    #指明tunnel的封装方式
     cfg.ListOpt('tunnel_types',
                 default=['geneve', 'vxlan', 'gre'],
                 help=_("The encapsulation types for the tunnels")),
@@ -45,6 +48,7 @@ df_opts = [
     cfg.ListOpt('apps_list',
                 default=['l2', 'l3_proactive', 'dhcp'],
                 help=_('List of openflow applications classes to load')),
+    #集成桥名称
     cfg.StrOpt('integration_bridge', default='br-int',
                help=_("Integration bridge to use. "
                       "Do not change this parameter unless you have a good "
@@ -73,12 +77,14 @@ df_opts = [
     cfg.StrOpt('switch_backend',
                default='vswitch_backend_driver',
                help=_('Backend switch drivers to use')),
+    #指定可用的publishers ip列表
     cfg.ListOpt('publishers_ips',
                 default=['$local_ip'],
                 help=_('List of the Neutron Server Publisher IPs.')),
     cfg.PortOpt('publisher_port',
                 default=8866,
                 help=_('Neutron Server Publishers port')),
+    #指明发布协议
     cfg.StrOpt('publisher_transport',
                default='tcp',
                help=_('Neutron Server Publishers transport protocol')),

@@ -399,7 +399,7 @@ def construct_nb_db_model(cls_=None, indexes=None, events=frozenset()):
     else:
         return decorator(cls_)
 
-
+#记录已注册的module,通过注解register_model来完成
 _registered_models = set()
 _lookup_by_class_name = {}
 _lookup_by_table_name = {}
@@ -445,12 +445,13 @@ def register_model(cls):
             ),
         )
 
-    #注册
+    #注册module
     _registered_models.add(cls)
     _lookup_by_class_name[cls.__name__] = cls
     _lookup_by_table_name[cls.table_name] = cls
 
     for model in cls.iterate_embedded_model_types():
+        #注册cls中embedded的model
         _registered_models.add(model)
         _lookup_by_class_name[model.__name__] = model
 
@@ -478,7 +479,7 @@ def get_model(arg):
 
     raise KeyError(arg)
 
-
+#遍历已注册的所有models
 def iter_models(first_class_only=True):
     '''Iterate over all registered models'''
     for model in _registered_models:

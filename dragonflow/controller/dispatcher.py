@@ -25,7 +25,7 @@ class AppDispatcher(object):
         self.apps = {}
 
     def load(self, *args, **kwargs):
-        #装载app指出的所有class
+        #装载app_lists指出的所有app class
         mgr = stevedore.NamedExtensionManager(
             'dragonflow.controller.apps',
             self.apps_list,

@@ -26,6 +26,7 @@ class DfSwitchDriver(object):
         self.nb_api = nb_api
 
     def initialize(self, db_change_callback, neutron_notifier):
+        #初始化ovsdb的库发生变换的callback
         self.db_change_callback = db_change_callback
         self.neutron_notifier = neutron_notifier
 

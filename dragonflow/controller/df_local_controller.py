@@ -56,8 +56,11 @@ class DfLocalController(object):
         self._pending_objects = collections.defaultdict(set)
 
         self.chassis_name = chassis_name
+        #北向api
         self.nb_api = nb_api
+        #指定database change event的处理函数
         self.nb_api.set_db_change_callback(self.db_change_callback)
+        #指明本主机ip地址
         self.ip = cfg.CONF.df.local_ip
         # Virtual tunnel port support multiple tunnel types together
         self.tunnel_types = cfg.CONF.df.tunnel_types
@@ -85,6 +88,7 @@ class DfLocalController(object):
             delete_cb=self.delete,
             selective=self.enable_selective_topo_dist,
         )
+        #周期性产生controller_sync事件
         self._sync_pulse = loopingcall.FixedIntervalLoopingCall(
             self._submit_sync_event)
 
@@ -92,6 +96,7 @@ class DfLocalController(object):
                 max_rate=1, time_unit=db_common.DB_SYNC_MINIMUM_INTERVAL)
 
     def db_change_callback(self, table, key, action, value, topic=None):
+        #依据参数构造database update obj
         update = db_common.DbUpdate(table, key, action, value, topic=topic)
         LOG.debug("Pushing Update to Queue: %s", update)
         #将更新信息存入队列
@@ -108,12 +113,14 @@ class DfLocalController(object):
             self._queue.task_done()
 
     def run(self):
-        #注册nb_api的通知回调
+        #注册nb_api的通知回调（完成self._queue中event update的处理，见process_changes)
         self.nb_api.register_notification_callback(self._handle_update)
         if self.neutron_notifier:
             self.neutron_notifier.initialize(nb_api=self.nb_api)
+        #????
         self.topology = topology.Topology(self,
                                           self.enable_selective_topo_dist)
+        #开启定时器，周期性触发controller sync事件
         self._sync_pulse.start(
             interval=cfg.CONF.df.db_sync_time,
             initial_delay=cfg.CONF.df.db_sync_time,
@@ -121,11 +128,14 @@ class DfLocalController(object):
 
         self.switch_backend.start()
         self._register_models()
+        # 更新自身
         self.register_chassis()
         self.sync()
+        # 自队列中取出更新event传入cb处理
         self.process_changes()
 
     def _submit_sync_event(self):
+        #产生controller_sync事件
         self.db_change_callback(None, None,
                                 ctrl_const.CONTROLLER_SYNC, None)
 
@@ -135,6 +145,7 @@ class DfLocalController(object):
         for model in model_framework.iter_models_by_dependency_order():
             # FIXME (dimak) generalize sync to support non-northbound models
             if model not in ignore_models:
+                #指明要同步的model
                 self._sync.add_model(model)
 
     def sync(self):
@@ -180,12 +191,15 @@ class DfLocalController(object):
 
     def register_chassis(self):
         # Get all chassis from nb db to db store.
+        # 获取所有的chassis,更新到cache
         for c in self.nb_api.get_all(core.Chassis):
             self.db_store.update(c)
 
+        #取出缓存的自身chassis
         old_chassis = self.db_store.get_one(
             core.Chassis(id=self.chassis_name))
 
+        #用当前新的配置更新自身chassis
         chassis = core.Chassis(
             id=self.chassis_name,
             ip=self.ip,
@@ -194,10 +208,12 @@ class DfLocalController(object):
         if cfg.CONF.df.external_host_ip:
             chassis.external_host_ip = cfg.CONF.df.external_host_ip
 
+        #更新至cache中
         self.db_store.update(chassis)
 
         # REVISIT (dimak) Remove skip_send_event once there is no bind conflict
         # between publisher service and the controoler, see bug #1651643
+        # 触发create or update event
         if old_chassis is None:
             self.nb_api.create(chassis, skip_send_event=True)
         elif old_chassis != chassis:
@@ -214,9 +230,11 @@ class DfLocalController(object):
         self.db_store.delete(publisher)
 
     def switch_sync_finished(self):
+        # 执行switch sync完成
         self.switch_backend.switch_sync_finished()
 
     def switch_sync_started(self):
+        # 开始执行 switch sync
         self.switch_backend.switch_sync_started()
 
     def _is_newer(self, obj, cached_obj):
@@ -231,7 +249,7 @@ class DfLocalController(object):
         except AttributeError:
             return obj != cached_obj
 
-    #通过缓存的obj来区分是更新，还是删除
+    #通过缓存的obj来区分是更新，还是删除(通用的update)
     def update_model_object(self, obj):
         #取之前缓存的obj
         original_obj = self.db_store.get_one(obj)
@@ -252,6 +270,7 @@ class DfLocalController(object):
                 #执行obj更新
                 obj.emit_updated(original_obj)
 
+    #通用的delete obj函数
     def delete_model_object(self, obj):
         # Retrieve full object (in case we only got Model(id='id'))
         org_obj = self.db_store.get_one(obj)
@@ -280,7 +299,7 @@ class DfLocalController(object):
         return getattr(self, method_name, self.delete_model_object)
 
     def update(self, obj):
-        #调用update_xx
+        #调用update_xx或者 update_model_obj
         handler = getattr(
             self,
             'update_{0}'.format(obj.table_name),
@@ -298,7 +317,7 @@ class DfLocalController(object):
         return self.delete(model(id=obj_id))
 
     def _handle_update(self, update):
-        #处理收到的update
+        #处理controller收到的update event
         try:
             self._handle_db_change(update)
         except Exception as e:
@@ -311,13 +330,13 @@ class DfLocalController(object):
     def _handle_db_change(self, update):
         action = update.action
         if action == ctrl_const.CONTROLLER_REINITIALIZE:
-            #重新初始化
+            #重新初始化controller
             self.db_store.clear()
             self.switch_backend.initialize(self.db_change_callback,
                                            self.neutron_notifier)
             self.sync()
         elif action == ctrl_const.CONTROLLER_SYNC:
-            #同步
+            #执行同步
             self.sync()
         elif action == ctrl_const.CONTROLLER_DBRESTART:
             #db重启事件
@@ -332,6 +351,7 @@ class DfLocalController(object):
             #显示contrller log
             LOG.info('Log event: %s', str(update))
         elif update.table is not None:
+            #收到module 更新event
             try:
                 model_class = model_framework.get_model(update.table)
             except KeyError:
@@ -363,6 +383,7 @@ class DfLocalController(object):
             self._pending_objects[reference_id].add((model, obj.id))
         else:
             queue = itertools.chain(reversed(references), (obj,))
+            #触发self.update
             self._send_update_events(queue)
             self._send_pending_events(obj)
 
@@ -460,7 +481,9 @@ def main():
     chassis_name = cfg.CONF.host
     df_config.init(sys.argv)
 
+    #创建北向api
     nb_api = api_nb.NbApi.get_instance()
     controller = DfLocalController(chassis_name, nb_api)
+    #注册此service,实现service保活
     service.register_service('df-local-controller', nb_api)
     controller.run()

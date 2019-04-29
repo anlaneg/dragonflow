@@ -31,7 +31,7 @@ OFPORT_RANGE_MAX = 65533
 
 OVS_LOG_FILE_NAME = 'df-ovs.log'
 
-
+#定义操作ovs的api
 class OvsApi(object):
     """The interface of openvswitch
 
@@ -41,6 +41,7 @@ class OvsApi(object):
 
     def __init__(self, ip, protocol='tcp', port='6640', timeout=10):
         super(OvsApi, self).__init__()
+        #ovs对应的ip地址
         self.ip = ip
         self.protocol = protocol
         self.port = port
@@ -48,6 +49,7 @@ class OvsApi(object):
         # this attribute to set the timeout of ovs db.
         self.vsctl_timeout = timeout
         self.ovsdb = None
+        #指定集成桥名称
         self.integration_bridge = cfg.CONF.df.integration_bridge
         if cfg.CONF.log_dir:
             vlog.Vlog.init(cfg.CONF.log_dir + '/' + OVS_LOG_FILE_NAME)
@@ -55,9 +57,10 @@ class OvsApi(object):
             vlog.Vlog.init()
 
     def initialize(self, db_change_callback):
-        #指明db的连接方式
+        #指明ovsdb的连接方式
         db_connection = ('%s:%s:%s' % (self.protocol, self.ip, self.port))
 
+        #产生switch开始同步事件
         db_change_callback(None, None,
                            constants.CONTROLLER_SWITCH_SYNC_STARTED, None)
 
@@ -65,6 +68,7 @@ class OvsApi(object):
             db_connection, self.vsctl_timeout,
             db_change_callback)
 
+        #产生switch同步完成事件
         db_change_callback(None, None,
                            constants.CONTROLLER_SWITCH_SYNC_FINISHED, None)
 
@@ -84,11 +88,13 @@ class OvsApi(object):
         self.ovsdb.set_fail_mode(bridge, fail_mode).execute()
 
     def check_controller(self, target):
+        #检查target是否已被配置为controller
         controllers = self.ovsdb.get_controller(
             self.integration_bridge).execute()
         return target in controllers
 
     def check_controller_fail_mode(self, fail_mode):
+        #检查桥的fail_mode是否与fail_mode相等
         return fail_mode == self._db_get_val('Bridge',
                                              self.integration_bridge,
                                              'fail_mode')
